@@ -623,11 +623,11 @@ class RecoveryLedger:
         it is reduced by :func:`resolve_scope`, so unknown or conflicting
         ownership charges the run-wide bucket rather than a private one.
 
-        When ``max_attempts`` is given and the scope's new count reaches it, an
-        anchored ``human_required`` gate entry is written (once per scope), so
-        the escalation survives later compaction of the ATTEMPT entries. The
-        marker carries the scope, so dependency A's escalation does not block a
-        repair path for dependency B.
+        When an explicit or configured budget exists and the scope's new
+        count reaches it, an anchored ``human_required`` gate entry is written
+        (once per scope), so the escalation survives later compaction of the
+        ATTEMPT entries. The marker carries the scope, so dependency A's
+        escalation does not block a repair path for dependency B.
 
         ``global_max_attempts`` caps a scoped allowance at the run-wide ceiling:
         a per-dependency limit configured above it still escalates at the
