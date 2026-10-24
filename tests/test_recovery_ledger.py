@@ -365,12 +365,13 @@ def test_scoped_query_honors_dependency_budget_without_a_marker(
         "dependency_budgets": {"ext:weather-api": 1},
     }
 
-    assert ledger.requires_human(
-        "run_1", scope=["ext:weather-api"], dependency_budgets=budgets
-    ) is True
-    assert ledger.requires_human(
-        "run_1", scope=["ext:payments"], dependency_budgets=budgets
-    ) is True
+    assert (
+        ledger.requires_human("run_1", scope=["ext:weather-api"], dependency_budgets=budgets)
+        is True
+    )
+    assert (
+        ledger.requires_human("run_1", scope=["ext:payments"], dependency_budgets=budgets) is True
+    )
 
 
 def test_run_wide_query_honors_default_max_attempts(ledger: RecoveryLedger) -> None:
@@ -380,9 +381,7 @@ def test_run_wide_query_honors_default_max_attempts(ledger: RecoveryLedger) -> N
     budgets = {"default_max_attempts": 2}
 
     assert ledger.requires_human("run_1", dependency_budgets=budgets) is True
-    assert ledger.requires_human(
-        "run_1", max_attempts=5, dependency_budgets=budgets
-    ) is True
+    assert ledger.requires_human("run_1", max_attempts=5, dependency_budgets=budgets) is True
 
 
 def test_run_wide_default_budget_marker_survives_compaction(
@@ -415,9 +414,7 @@ def test_run_wide_default_respects_global_max_attempts(ledger: RecoveryLedger) -
     ledger.record_attempt("run_1")
     budgets = {"default_max_attempts": 5}
 
-    assert ledger.requires_human(
-        "run_1", dependency_budgets=budgets, global_max_attempts=2
-    ) is True
+    assert ledger.requires_human("run_1", dependency_budgets=budgets, global_max_attempts=2) is True
 
 
 def test_dependency_budget_takes_precedence_over_the_global_default(
