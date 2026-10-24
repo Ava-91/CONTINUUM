@@ -654,14 +654,14 @@ class RecoveryLedger:
             )
             else []
         )
-        if deps:
-            if dependency_budgets is None:
-                try:
-                    from continuum.budgets import DEFAULT_BUDGETS_PATH, load_budgets
+        if dependency_budgets is None:
+            try:
+                from continuum.budgets import DEFAULT_BUDGETS_PATH, load_budgets
 
-                    dependency_budgets = load_budgets(Path(DEFAULT_BUDGETS_PATH))
-                except Exception:
-                    dependency_budgets = None
+                dependency_budgets = load_budgets(Path(DEFAULT_BUDGETS_PATH))
+            except Exception:
+                dependency_budgets = None
+        if deps:
             total = 0
             for dep in deps:
                 with self._locked(run_id):
@@ -708,17 +708,20 @@ class RecoveryLedger:
             sealed = self._seal_and_save(
                 run_id, entries, kind=LedgerEntryKind.ATTEMPT, note=note, scope=resolved
             )
-            count = (
-                sum(
-                    1
-                    for e in entries
-                    if e.kind == LedgerEntryKind.ATTEMPT.value and e.scope == resolved
+            count = self._attempt_count(entries, resolved) + 1
+            if resolved is not None:
+                limit = max_attempts_for_dependency(
+                    dependency_budgets, resolved, fallback=max_attempts
                 )
-                + 1
-            )
-            limit = (
-                _ceiling(max_attempts, global_max_attempts) if max_attempts is not None else None
-            )
+            else:
+                default_limit = (dependency_budgets or {}).get("default_max_attempts")
+                limit = (
+                    default_limit
+                    if isinstance(default_limit, int) and not isinstance(default_limit, bool)
+                    else max_attempts
+                )
+            if limit is not None:
+                limit = _ceiling(limit, global_max_attempts)
             escalated = any(
                 e.kind == LedgerEntryKind.GATE.value
                 and e.gate == HUMAN_REQUIRED
@@ -737,29 +740,6 @@ class RecoveryLedger:
                     note=f"attempt {count} for scope {label} reached the escalation "
                     f"threshold {limit}",
                 )
-                count = (
-                    sum(
-                        1
-                        for e in entries
-                        if e.kind == LedgerEntryKind.ATTEMPT.value and e.scope is None
-                    )
-                    + 1
-                )
-                escalated = any(
-                    e.kind == LedgerEntryKind.GATE.value and e.gate == HUMAN_REQUIRED
-                    for e in entries
-                )
-                if max_attempts is not None and count >= max_attempts and not escalated:
-                    self._seal_and_save(
-                        run_id,
-                        [*entries, sealed],
-                        kind=LedgerEntryKind.GATE,
-                        gate=HUMAN_REQUIRED,
-                        anchor=True,
-                        note=f"attempt {count} reached the escalation threshold {max_attempts}",
-                    )
-                return count
-
         return count
 
     def attempts(
@@ -910,6 +890,7 @@ class RecoveryLedger:
         scope: object = None,
         max_attempts: int = 3,
         global_max_attempts: int | None = None,
+        dependency_budgets: Mapping[str, Any] | None = None,
     ) -> BudgetStatus:
         """The allowance standing for ``scope``: counts only, for a contract or
         a CLI to print.
@@ -917,11 +898,30 @@ class RecoveryLedger:
         ``scope`` is reduced by :func:`resolve_scope`; the returned status names
         the scope it actually resolved, so a caller whose ownership was
         ambiguous can see that it fell back to the run-wide bucket rather than
-        silently getting a private one.
+        silently getting a private one. The same configured limit used by
+        ``requires_human`` is reported here.
         """
+        if dependency_budgets is None:
+            try:
+                from continuum.budgets import DEFAULT_BUDGETS_PATH, load_budgets
+
+                dependency_budgets = load_budgets(Path(DEFAULT_BUDGETS_PATH))
+            except Exception:
+                dependency_budgets = None
         resolved = resolve_scope(scope)
         entries = self.entries(run_id)
-        limit = _ceiling(max_attempts, global_max_attempts)
+        if resolved is not None:
+            configured_limit = max_attempts_for_dependency(
+                dependency_budgets, resolved, fallback=max_attempts
+            )
+        else:
+            default_limit = (dependency_budgets or {}).get("default_max_attempts")
+            configured_limit = (
+                default_limit
+                if isinstance(default_limit, int) and not isinstance(default_limit, bool)
+                else max_attempts
+            )
+        limit = _ceiling(configured_limit, global_max_attempts)
         escalated = any(
             e.kind == LedgerEntryKind.GATE.value
             and e.gate == HUMAN_REQUIRED
