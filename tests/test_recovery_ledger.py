@@ -351,6 +351,46 @@ def test_dependency_without_an_explicit_budget_uses_the_global_default(
     )
 
 
+def test_scoped_query_honors_dependency_budget_without_a_marker(
+    ledger: RecoveryLedger,
+) -> None:
+    """A scoped query applies the dependency's configured ceiling even when
+    attempts were recorded before the caller supplied the budget registry.
+    """
+    ledger.record_attempt("run_1", dependency="ext:weather-api")
+    budgets = {"dependency_budgets": {"ext:weather-api": 1}}
+
+    assert ledger.requires_human(
+        "run_1", scope=["ext:weather-api"], dependency_budgets=budgets
+    ) is True
+    assert ledger.requires_human(
+        "run_1", scope=["ext:payments"], dependency_budgets=budgets
+    ) is False
+
+
+def test_run_wide_query_honors_default_max_attempts(ledger: RecoveryLedger) -> None:
+    """The run-wide query uses the registry default, not only max_attempts."""
+    ledger.record_attempt("run_1")
+    ledger.record_attempt("run_1")
+    budgets = {"default_max_attempts": 2}
+
+    assert ledger.requires_human("run_1", dependency_budgets=budgets) is True
+    assert ledger.requires_human(
+        "run_1", max_attempts=5, dependency_budgets=budgets
+    ) is True
+
+
+def test_run_wide_default_respects_global_max_attempts(ledger: RecoveryLedger) -> None:
+    """The global ceiling can tighten, but never loosen, the registry default."""
+    ledger.record_attempt("run_1")
+    ledger.record_attempt("run_1")
+    budgets = {"default_max_attempts": 5}
+
+    assert ledger.requires_human(
+        "run_1", dependency_budgets=budgets, global_max_attempts=2
+    ) is True
+
+
 def test_dependency_budget_takes_precedence_over_the_global_default(
     ledger: RecoveryLedger,
 ) -> None:
