@@ -970,7 +970,9 @@ def test_assess_honors_run_wide_default_recovery_budget(store: SQLiteStorage) ->
 
     assert decision.mode is RecoveryMode.REQUEST_HUMAN
     assert "recovery budget exhausted for run" in " ".join(decision.rationale)
-    assert any("2 of 2 attempts used, 0 remaining" in evidence for evidence in decision.contract.evidence)
+    assert any(
+        "2 of 2 attempts used, 0 remaining" in evidence for evidence in decision.contract.evidence
+    )
 
 
 def test_engine_record_attempt_and_requires_human_delegates(
