@@ -46,7 +46,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from continuum.budgets import max_attempts_for_dependency
+from continuum.budgets import FALLBACK_MAX_ATTEMPTS, max_attempts_for_dependency
 from continuum.concurrency.lease import LeaseCoordinator
 from continuum.models import RecoveryContract, utcnow
 from continuum.security.hashing import make_id, stable_hash
@@ -919,7 +919,10 @@ class RecoveryLedger:
                 if isinstance(default_limit, int) and not isinstance(default_limit, bool)
                 else max_attempts
             )
-        limit = _ceiling(configured_limit, global_max_attempts)
+        limit = _ceiling(
+            configured_limit if configured_limit is not None else FALLBACK_MAX_ATTEMPTS,
+            global_max_attempts,
+        )
         escalated = any(
             e.kind == LedgerEntryKind.GATE.value
             and e.gate == HUMAN_REQUIRED
