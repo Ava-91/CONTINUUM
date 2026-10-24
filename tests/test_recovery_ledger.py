@@ -385,6 +385,30 @@ def test_run_wide_query_honors_default_max_attempts(ledger: RecoveryLedger) -> N
     ) is True
 
 
+def test_run_wide_default_budget_marker_survives_compaction(
+    ledger: RecoveryLedger,
+) -> None:
+    """Recording at the configured run-wide threshold anchors escalation."""
+    budgets = {"default_max_attempts": 2}
+    ledger.record_attempt("run_1", dependency_budgets=budgets)
+    ledger.record_attempt("run_1", dependency_budgets=budgets)
+
+    assert ledger.requires_human("run_1", dependency_budgets=budgets) is True
+    assert any(
+        entry.kind == LedgerEntryKind.GATE.value
+        and entry.gate == "human_required"
+        and entry.anchor
+        and entry.scope is None
+        for entry in ledger.entries("run_1")
+    )
+
+    removed = ledger.compact("run_1", keep=1)
+
+    assert removed == 1
+    assert ledger.attempts("run_1") == 1
+    assert ledger.requires_human("run_1", dependency_budgets=budgets) is True
+
+
 def test_run_wide_default_respects_global_max_attempts(ledger: RecoveryLedger) -> None:
     """The global ceiling can tighten, but never loosen, the registry default."""
     ledger.record_attempt("run_1")
