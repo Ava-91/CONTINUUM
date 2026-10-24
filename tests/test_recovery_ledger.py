@@ -358,14 +358,19 @@ def test_scoped_query_honors_dependency_budget_without_a_marker(
     attempts were recorded before the caller supplied the budget registry.
     """
     ledger.record_attempt("run_1", dependency="ext:weather-api")
-    budgets = {"dependency_budgets": {"ext:weather-api": 1}}
+    ledger.record_attempt("run_1", dependency="ext:payments")
+    ledger.record_attempt("run_1", dependency="ext:payments")
+    budgets = {
+        "default_max_attempts": 2,
+        "dependency_budgets": {"ext:weather-api": 1},
+    }
 
     assert ledger.requires_human(
         "run_1", scope=["ext:weather-api"], dependency_budgets=budgets
     ) is True
     assert ledger.requires_human(
         "run_1", scope=["ext:payments"], dependency_budgets=budgets
-    ) is False
+    ) is True
 
 
 def test_run_wide_query_honors_default_max_attempts(ledger: RecoveryLedger) -> None:
