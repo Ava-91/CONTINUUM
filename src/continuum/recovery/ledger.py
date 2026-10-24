@@ -870,6 +870,14 @@ class RecoveryLedger:
                     return True
             return False
 
+        if dependency_budgets is None:
+            try:
+                from continuum.budgets import DEFAULT_BUDGETS_PATH, load_budgets
+
+                dependency_budgets = load_budgets(Path(DEFAULT_BUDGETS_PATH))
+            except Exception:
+                dependency_budgets = None
+
         resolved = resolve_scope(scope)
         entries = self.entries(run_id)
         if any(
@@ -879,8 +887,21 @@ class RecoveryLedger:
             for e in entries
         ):
             return True
-        limit = _ceiling(max_attempts, global_max_attempts)
-        return self._attempt_count(entries, resolved) >= limit
+
+        if resolved is not None:
+            limit = max_attempts_for_dependency(
+                dependency_budgets, resolved, fallback=max_attempts
+            )
+        else:
+            default_limit = (dependency_budgets or {}).get("default_max_attempts")
+            limit = (
+                default_limit
+                if isinstance(default_limit, int) and not isinstance(default_limit, bool)
+                else max_attempts
+            )
+        if limit is not None:
+            limit = _ceiling(limit, global_max_attempts)
+        return limit is not None and self._attempt_count(entries, resolved) >= limit
 
     def budget(
         self,
