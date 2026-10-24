@@ -869,9 +869,7 @@ class RecoveryLedger:
             return True
 
         if resolved is not None:
-            limit = max_attempts_for_dependency(
-                dependency_budgets, resolved, fallback=max_attempts
-            )
+            limit = max_attempts_for_dependency(dependency_budgets, resolved, fallback=max_attempts)
         else:
             default_limit = (dependency_budgets or {}).get("default_max_attempts")
             limit = (
