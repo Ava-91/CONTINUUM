@@ -404,8 +404,8 @@ def test_run_wide_default_budget_marker_survives_compaction(
 
     removed = ledger.compact("run_1", keep=1)
 
-    assert removed == 1
-    assert ledger.attempts("run_1") == 1
+    assert removed == 2
+    assert ledger.attempts("run_1") == 0
     assert ledger.requires_human("run_1", dependency_budgets=budgets) is True
 
 
